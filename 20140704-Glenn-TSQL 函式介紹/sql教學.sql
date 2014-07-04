@@ -145,20 +145,6 @@ select id , commodity,sum(amount) sumAmo from Orders
 where id=1
 group by id , commodity
 
---for xml 當多筆資料需整理成一筆送出時
-select distinct id,(
-					SELECT  CAST(isnull(commodity,'') AS VARCHAR)  +' - ' + CONVERT(varchar,(Samount))+','
-					FROM   (
-						select id , commodity,sum(amount) as Samount
-						from orders
-						group by id,commodity
-					)T
-					WHERE T.id = o.id
-					group by commodity,Samount
-					ORDER  BY commodity 
-					FOR XML PATH('')
-					) as txml
-from Orders o
 
 
 SELECT  CAST(isnull(commodity,'') AS VARCHAR)  +','
@@ -170,7 +156,7 @@ FOR XML PATH('')
 
 --排序相關
 select * ,
-ROW_NUMBER() OVER(ORDER BY amount) AS ROW_NUMBER_amount,--排序(不重覆)
+ROW_NUMBER() OVER(ORDER BY amount,commodity) AS ROW_NUMBER_amount,--排序(不重覆)
 RANK() OVER(ORDER BY amount) AS RANK_amount,--排序(跳號)
 DENSE_RANK() OVER(ORDER BY amount) AS DENSE_RANK_amount,--排序(不跳號)
 NTILE(5) over(order by amount )as NTILE_amount, --分級
@@ -222,6 +208,7 @@ ON View_Pax_Cnma (PAX_CNM)
 INCLUDE (PAX_CD)
 --檢視view
 select * from  View_Pax_Cnm
+where PAX_CNM like '%'
 --刪除view
 drop VIEW View_Pax_Cnma
 
@@ -243,7 +230,7 @@ PIVOT (
 select * ,ROW_NUMBER() OVER(ORDER BY Totle desc)as sq
 --into tmpa
 from (
-	select * , isnull([Peache],0)+isnull([Apple],0)+isnull([banana],0) as Totle 
+	select * 
 	from (
 		SELECT * FROM (
 			select o.ID,o.commodity,o.amount
@@ -271,6 +258,122 @@ drop table tmpa
 
 
 
+--FOR XML
+--FOR XML PATH  
+SELECT id ,    commodity ,amount
+FROM orders 
+WHERE id=7 
+FOR XML PATH  ,ROOT('myRoot')
 
+SELECT CAST(isnull(commodity,'') AS VARCHAR)  +' - ' + CONVERT(varchar,(amount))+' | '
+FROM orders 
+WHERE id=7 
+FOR XML PATH('')  
+
+
+--FOR XML RAW 
+select PAX_CD,PAX_CNML+PAX_CNMF as PAX_CNM 
+	from dbo.TRPAX AS P
+FOR XML RAW, TYPE,ROOT('myRoot')
+
+--FOR XML AUTo
+select PAX_CD,PAX_CNML+PAX_CNMF as PAX_CNM 
+	from dbo.TRPAX
+FOR XML AUTO, TYPE,ROOT('myRoot')
+
+--FOR XML RAW 與 FOR XML AUTO的差別 只是Tag的名稱不同其餘功能大至相同
+
+--FOR XML EXPLICIT
+SELECT
+    1 AS Tag,
+    NULL AS Parent,
+    NULL AS 'Agents!1!',
+    NULL AS 'Agent!2!AgentID',
+    NULL AS 'Agent!2!Fname!Element',
+    NULL AS 'Agent!2!SSN!Element'
+UNION ALL
+SELECT
+    2 AS Tag,
+    1 AS Parent,
+    NULL, 
+    'AgentID',
+    'Fname',
+    'SSN'
+UNION ALL
+SELECT
+    2 AS Tag,
+    1 AS Parent,
+    NULL, 
+    'AgentID2',
+    'Fname2',
+    'SSN2'
+FOR XML EXPLICIT
+
+
+
+
+---EXPLICIT進階
+/*
+Borrowed from Kent's code
+*/
+declare @agent table
+(
+    AgentID int,
+    Fname varchar(5),
+    SSN varchar(11)
+)
+insert into @agent
+select 1, 'Vimal', '123-23-4521' union all
+select 2, 'Jacob', '321-52-4562' union all
+select 3, 'Tom', '252-52-4563'
+declare @address table
+(
+    AddressID int,
+    AddressType varchar(12),
+    Address1 varchar(20),
+    Address2 varchar(20),
+    City varchar(25),
+    AgentID int
+)
+insert into @address
+select 1, 'Home', 'abc', 'xyz road', 'RJ', 1 union all
+select 2, 'Office', 'temp', 'ppp road', 'RJ', 1 union all
+select 3, 'Home', 'xxx', 'aaa road', 'NY', 2 union all
+select 4, 'Office', 'ccc', 'oli Com', 'CL', 2 union all
+select 5, 'Temp', 'eee', 'olkiu road', 'CL', 2 union all
+select 6, 'Home', 'ttt', 'loik road', 'NY', 3
+
+SELECT
+    1 AS Tag,
+    NULL AS Parent,
+    NULL AS 'Agents!1!',
+    NULL AS 'Agent!2!AgentID',
+    NULL AS 'Agent!2!Fname!Element',
+    NULL AS 'Agent!2!SSN!Element'
+UNION ALL
+SELECT
+    2 AS Tag,
+    1 AS Parent,
+    NULL, 
+    AgentID,
+    Fname,
+    SSN
+FROM @agent
+FOR XML EXPLICIT
+
+--for xml 當多筆資料需整理成一筆送出時
+select distinct id,(
+		SELECT  CAST(isnull(commodity,'') AS VARCHAR)  +' - ' + CONVERT(varchar,(Samount))+'||'
+		FROM   (
+			select id , commodity,sum(amount) as Samount
+			from orders
+			group by id,commodity
+		)T
+		WHERE T.id = o.id
+		group by commodity,Samount
+		ORDER  BY commodity 
+		FOR XML PATH('')
+		) as txml
+from Orders o
 
 
